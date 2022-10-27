@@ -37,80 +37,24 @@ flows:
   default:
     - log: "Hawkeye-Concord | This is the default flow"
 
-  # the flow that does the actual deployment using the sub kitt files (like facility based kitt files)
-  kitt-deploy:
-    # the logic followed by this flow is the following
-    #  1. prepare the url of the kitt file passed in
-    #  2. invoke the http task with the url and the token to grab the contents of the kitt file
-    #  3. iterate through the stages of the kitt file and match the stage that is passed in
-    #  4. iterate through the clusters for the matched stage and check if there are any valid (non bogus) clusters to deploy to
-    #  5. invoke onlyDeploy task for valid clusters
-    - log: "Hawkeye-Concord | Reading contents of kitt file ${item}"
-
-
-  # attempt a deployment for a given stage
-  deploy-stage:
-    # if there were any values that were supplied by the initiatives for the kittGraph then
-    # we will be having to display the form so that they can choose which deployments to execute
-    # based on the stage
-    - if: ${usedFormDeployment}
-      then:
-        - form: deploymentForm
-          values:
-            processId: ${txId}
-            repo: ${repo}
-            branch: ${branch}
-            version: ${version}
-            organization: ${organization}
-            kittFilesGraph: ${kittFilesGraph}
-        - set:
-            kittFiles: ${deploymentForm.onlySelectedKittFiles}
-    - log: "Hawkeye-Concord | We got ${stageName}"
-    - log: "Hawkeye-Concord | Deploying to stage ${stageName} with baseProfile=${baseProfile}"
-    - checkpoint: "Deploy_${stageName}"
-    - set:
-        jobIds: [ ]
-    # this call is going to invoke the flow that does the actual deployment by passing in the sub kitt file (like the
-    # facility based kitt file) along with the stage of deployment
-    - call: kitt-deploy
-      withItems: ${kittFiles}
-      in:
-        stageRefs: [ "${stageName}" ]
-
-
-  # check whether the branch matches any of the refs, and deploy the stage
-  deploy-by-ref:
-    - log: "Hawkeye-Concord | deploy-by-ref: ${item}"
-    - if: ${branch.matches(item)}
-      then:
-        - log: "Hawkeye-Concord | deploying matched ref: ${item}"
-        - call: deploy-stage
-          in:
-            stageName: ${stageName}
-      else:
-        - log: "Hawkeye-Concord | skipping unmatched ref: ${item}"
-
-  # iterate through each stage to get the name and defined refs
-  deploy-by-stage:
-    - log: "Hawkeye-Concord | deploy-by-stage ${item.name} - ${item.refs}"
-    - set:
-        # force the conversion of the item object to a string
-        stageName: ${item.name}
-    - call: deploy-by-ref
-      in:
-        stageName: ${stageName}
-      withItems: ${item.refs}
-
   #This is the entry point for the repos that use this in their post-build trigger
   deploy:
     - log: "Hawkeye-Concord | !!! GITHUB EVENT !!! ${event}"
     - checkpoint: "Start"
+
+      # if there were any values that were supplied by the initiatives for the kittGraph then
+      # we will be having to display the form so that they can choose which deployments to execute
+      # based on the stage
+    - form: deploymentForm
+      values:
+        processId: ${txId}
+        repo: ${repo}
+        branch: ${branch}
+        version: ${version}
+        organization: ${organization}
+        kittFilesGraph: ${kittFilesGraph}
     - set:
-        # The 'stages' used here is what is extracted from the kitt file that invoked this concord job from the post-build trigger
-        # So, it is only the stages as defined in the root 'kitt.yml' file in the repos
-        stageRefs: ${resource.asJson(resource.writeAsString(stages))}
-        itemsByStage: "${stageRefs.stream().filter(i -> !i.name.equals('pr')).map(i -> { 'name': i.name, 'refs': i.refs }).toList()}"
-    - log: "Hawkeye-Concord | itemsByStage: ${itemsByStage}"
+        kittFiles: ${deploymentForm.onlySelectedKittFiles}
 
   onFailure:
     - log: "Hawkeye-Concord | Pipeline failed to complete"
