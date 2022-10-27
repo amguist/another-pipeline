@@ -54,7 +54,8 @@ flows:
         organization: ${organization}
         kittFilesGraph: ${kittFilesGraph}
     - set:
-        kittFiles: ${deploymentForm.onlySelectedKittFiles}
+        selectedKittGraph: ${deploymentForm.onlySelectedKittFiles}
+    - log: "Hawkeye Concord | Selected Kitt Files ${selectedKittGraph}"
 
   onFailure:
     - log: "Hawkeye-Concord | Pipeline failed to complete"
