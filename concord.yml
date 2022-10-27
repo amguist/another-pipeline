@@ -56,7 +56,6 @@ flows:
     - set:
         selectedKittGraph: ${deploymentForm.onlySelectedKittFiles}
     - log: "Hawkeye Concord | Selected Kitt Files ${selectedKittGraph}"
-    - log: "${selectedKittGraph.stream().toList()}"
 
   onFailure:
     - log: "Hawkeye-Concord | Pipeline failed to complete"
