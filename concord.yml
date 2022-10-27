@@ -1,0 +1,150 @@
+# The entry flow in this file is invoked as a post build trigger from repos that don't want to use the default kitt
+# deployment and instead want to do deployments using sub kitt files (like facility kitt files).
+# For an example repo and for future developments with easy build and deploy times use
+# https://gecgithub01.walmart.com/Hawkeye/hawkeye-kitt-playground
+
+# It has two modes of deployment - one for PRs and one for regular deployments
+#  Note that the root kitt file is not directly involved in deployment, besides being the trigger for this custom flow
+
+# PR Mode:
+# The PR mode is triggered when a PR is created against the branch specified in the 'pr' stage of the root kitt file.
+# In this mode only the stage named 'pr' for all the sub kitt files is invoked as deployment. All other stages are ignored
+# This means that ideally there should just be a single sub kitt file that is meant to invoke what needs to be done for PR
+# and all other files should not specify the 'pr' stage at all
+
+# Regular deployment mode:
+# The regular deployments are triggered for pushes against the branches defined in the refs of the root kitt file
+# The deployment follows the same chain as it would have if deployed through kitt
+
+# The git branch of this repo that is used by the other repos that want to use this custom flow is set through the
+# 'repo' parameter in the arguments below. The 'repo' here does not refer to a 'git' repo but rather a Concord repo
+# created in Concord at https://concord.prod.walmart.com/#/org/Hawkeye/project/hawkeye/repository
+# It is probably best to use the `hawkeye-kitt-develop` repo defined there, which points to the `develop` branch from
+# this git repo, for experiments and newer features to avoid creating too many Concord repos
+
+configuration:
+  dependencies:
+    - mvn://com.walmartlabs.concord.plugins:kube:1.21.2
+    - mvn://com.walmartlabs.concord.plugins:git:1.41.0
+    - mvn://org.python:jython-standalone:2.7.1
+    - mvn://org.codehaus.groovy:groovy-all:pom:2.5.2
+
+  arguments:
+    githubParam:
+      apiUrl: "https://gecgithub01.walmart.com/api/v3"
+    entryPoint: deploy
+    version: ""
+    branch: "main"
+    commitSHA: ""
+    organization: ""
+    kittFiles: [ "test-dev-cloud.yml", "test-qa-cloud.yml", "release-devOps-services.yml" ]
+    kittFilesGraph: [ ["test-dev-cloud.yml"], ["test-dev-cloud.yml", "test-qa-cloud.yml"], ["test-dev-cloud.yml", "test-qa-cloud.yml", "release-devOps-services.yml"], ["release-devOps-services.yml"] ]
+    selectedKittGraph: [ ]
+    kittCompletedDeployments: [ ]
+    usedFormDeployment: false
+    repo: "https://gecgithub01.walmart.com/Logistics/test-kitt.git"
+    baseProfile: { }
+    event: ""
+    channelName: "logistics-kitt"
+    stages: [ ]
+    slackThreadTs: ""
+    httpConnectTimeout: 30000
+    httpRequestTimeout: 30000
+    httpSocketTimout: 30000
+    retryDelay: 10
+    retryTimes: 3
+    childJobId: "" # used only in the PR deploy mode
+    # If this token ever expires or is needed to be changed follow these steps
+    #  1. create a new git access token from https://gecgithub01.walmart.com/settings/tokens
+    #  2. grab the token (it will only be visible when created and never after that)
+    #     2.1 this token is in plaintext and should not be used in code directly
+    #  3. go to https://concord.prod.walmart.com/#/org/Hawkeye/project/hawkeye/settings and use the 'Encrypt a value' section
+    #     3.1 enter the token obtained from github into the text box and press `Encrypt`
+    #     3.2 grab the encrypted token and put it as the parameter below for the 'crypto.decryptString' method
+    # hawkeyeGithubToken: ${crypto.decryptString("uSLDrtGdI3TuW8s7f+UsxuQWLb/J8A5+UdUdbutwyVXgxyJYp9EmRXOp9FgI6v1S")}
+
+forms:
+  deploymentForm:
+    - onlySelectedKittFiles: { label: "Kitt Files", type: "string*" }
+
+flows:
+  default:
+    - log: "Hawkeye-Concord | This is the default flow"
+
+  # the flow that does the actual deployment using the sub kitt files (like facility based kitt files)
+  kitt-deploy:
+    # the logic followed by this flow is the following
+    #  1. prepare the url of the kitt file passed in
+    #  2. invoke the http task with the url and the token to grab the contents of the kitt file
+    #  3. iterate through the stages of the kitt file and match the stage that is passed in
+    #  4. iterate through the clusters for the matched stage and check if there are any valid (non bogus) clusters to deploy to
+    #  5. invoke onlyDeploy task for valid clusters
+    - log: "Hawkeye-Concord | Reading contents of kitt file ${item}"
+
+
+  # attempt a deployment for a given stage
+  deploy-stage:
+    # if there were any values that were supplied by the initiatives for the kittGraph then
+    # we will be having to display the form so that they can choose which deployments to execute
+    # based on the stage
+    - if: ${usedFormDeployment}
+      then:
+        - form: deploymentForm
+          values:
+            processId: ${txId}
+            repo: ${repo}
+            branch: ${branch}
+            version: ${version}
+            organization: ${organization}
+            kittFilesGraph: ${kittFilesGraph}
+        - set:
+            kittFiles: ${deploymentForm.onlySelectedKittFiles}
+    - log: "Hawkeye-Concord | We got ${stageName}"
+    - log: "Hawkeye-Concord | Deploying to stage ${stageName} with baseProfile=${baseProfile}"
+    - checkpoint: "Deploy_${stageName}"
+    - set:
+        jobIds: [ ]
+    # this call is going to invoke the flow that does the actual deployment by passing in the sub kitt file (like the
+    # facility based kitt file) along with the stage of deployment
+    - call: kitt-deploy
+      withItems: ${kittFiles}
+      in:
+        stageRefs: [ "${stageName}" ]
+
+
+  # check whether the branch matches any of the refs, and deploy the stage
+  deploy-by-ref:
+    - log: "Hawkeye-Concord | deploy-by-ref: ${item}"
+    - if: ${branch.matches(item)}
+      then:
+        - log: "Hawkeye-Concord | deploying matched ref: ${item}"
+        - call: deploy-stage
+          in:
+            stageName: ${stageName}
+      else:
+        - log: "Hawkeye-Concord | skipping unmatched ref: ${item}"
+
+  # iterate through each stage to get the name and defined refs
+  deploy-by-stage:
+    - log: "Hawkeye-Concord | deploy-by-stage ${item.name} - ${item.refs}"
+    - set:
+        # force the conversion of the item object to a string
+        stageName: ${item.name}
+    - call: deploy-by-ref
+      in:
+        stageName: ${stageName}
+      withItems: ${item.refs}
+
+  #This is the entry point for the repos that use this in their post-build trigger
+  deploy:
+    - log: "Hawkeye-Concord | !!! GITHUB EVENT !!! ${event}"
+    - checkpoint: "Start"
+    - set:
+        # The 'stages' used here is what is extracted from the kitt file that invoked this concord job from the post-build trigger
+        # So, it is only the stages as defined in the root 'kitt.yml' file in the repos
+        stageRefs: ${resource.asJson(resource.writeAsString(stages))}
+        itemsByStage: "${stageRefs.stream().filter(i -> !i.name.equals('pr')).map(i -> { 'name': i.name, 'refs': i.refs }).toList()}"
+    - log: "Hawkeye-Concord | itemsByStage: ${itemsByStage}"
+
+  onFailure:
+    - log: "Hawkeye-Concord | Pipeline failed to complete"

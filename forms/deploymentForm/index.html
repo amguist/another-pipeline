@@ -1,0 +1,155 @@
+<!doctype html>
+<html xmlns="http://www.w3.org/1999/html">
+    <head>
+        <title>Deploy Form</title>
+        <script src="data.js"></script>
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+        <script src="../shared/semantic-UI/semantic.min.js"></script>
+        <link rel="stylesheet" href="../shared/semantic-UI/semantic.min.css" />
+        <link rel="stylesheet" href="../shared/dat-common.css" />
+    </head>
+    <body>
+        <div id="root">
+            <div class="ui centered grid">
+                <div class="sixteen wide column topBar">
+                    <div class="ui centered grid dat-page-header">
+                        <div class="fourteen wide column topBarColumn">
+                            <div class="ui small fluid inverted secondary menu">
+                                <div class="item">
+                                    <img id="concordLogo" src="../shared/logo.png" class="ui small image"/>
+                                </div>
+                                <div class="right vertically fitted item">
+                                    <span>Powered by Hawkeye</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <form id="deploymentForm" class="ui form">
+                <div class="ui two column stackable grid">
+                    <div class="three column row">
+                        <div class="column">
+                            <label><b>Organization</b></label>
+                            <div id="onlyDeployOrg" name="onlyDeployOrg" class="ui segment">
+
+                            </div>
+                        </div>
+                        <div class="column">
+                            <label><b>Repository</b></label>
+                            <div id="onlyDeployRepo" name="onlyDeployRepo" class="ui segment">
+
+                            </div>
+                        </div>
+                        <div class="column">
+                            <label><b>Branch</b></label>
+                            <div id="onlyDeployBranch" name="onlyDeployBranch" class="ui segment">
+
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <label><b>Concord Process Identifier</b></label>
+                        <div id="onlyDeployProcessId" name="onlyDeployProcessId" class="ui segment">
+
+                        </div>
+                    </div>
+                    <div class="column">
+                        <label><b>Version</b></label>
+                        <div id="onlyDeployVersion" name="onlyDeployVersion" class="ui segment">
+
+                        </div>
+                    </div>
+                    <div class="column">
+                        <label><b>Kitt Files</b></label>
+                        <div id="onlySelectedKittFiles" class="ui fluid selection search dropdown">
+                            <input name="onlySelectedKittFiles" type="hidden">
+                            <div class="default text">Kitt Deployments ...</div>
+                            <i class="dropdown icon"></i>
+                        </div>
+                    </div>
+                </div>
+                <br/>
+                <button id="customFormSubmitButton" class="ui primary button" type="submit">Submit</button>
+                <button class="ui button" type="button" onclick="redirectToProcessPage()">Back to Process Page</button>
+            </form>
+            <script type="text/javascript">
+
+                function submit() {
+                    var button = document.getElementById("customFormSubmitButton");
+                    button.classList.add("loading");
+
+                    $.ajax({
+                        type: "POST",
+                        url: data.submitUrl,
+                        data: $(this).serialize(),
+                        success: function(data) {
+                            button.classList.remove("loading");
+                            redirectToProcessPage();
+                        },
+                        error: function(data) {
+                            alert("Error in post - check browser console for details!");
+                            console.log("ERROR: ");
+                            console.log(data);
+                            button.classList.remove("loading");
+                        }
+                    });
+                }
+
+                function redirectToProcessPage() {
+                    window.location.replace("https://concord.prod.walmart.com/#/process/" + data.values.processId + "/status");
+                }
+
+                $(document).ready(function() {
+                    initializeFormElements();
+                });
+
+                function initializeFormElements() {
+                    // Set Values On Form Based On What's Being Supplied By Concord Process
+                    document.getElementById("onlyDeployOrg").innerHTML=`${data.values.organization}`;
+                    document.getElementById("onlyDeployRepo").innerHTML=`${data.values.repo}`;
+                    document.getElementById("onlyDeployBranch").innerHTML=`${data.values.branch}`;
+                    document.getElementById("onlyDeployProcessId").innerHTML=`${data.values.processId}`;
+                    document.getElementById("onlyDeployVersion").innerHTML=`${data.values.version}`;
+
+
+                    // Go ahead and loop through the kitt files graph in order to assign values to that
+                    // of the dropdown
+                    $('.ui.dropdown').dropdown();
+                    let kittOptions = []
+                    for (const kittGraph of data.values.kittFilesGraph) {
+                        let option = {
+                            "name" : kittGraph,
+                            "value" : kittGraph,
+                            "text" : kittGraph
+                        }
+                        kittOptions.push(option);
+                    }
+                    $('.ui.dropdown').dropdown({values: kittOptions});
+                }
+
+                $("#deploymentForm").submit(function(e) {
+                    e.preventDefault();
+                    var button = document.getElementById("customFormSubmitButton");
+                    button.classList.add("loading");
+
+                    $.ajax({
+                        type: "POST",
+                        url: data.submitUrl,
+                        data: $(this).serialize(),
+                        success: function(data) {
+                            button.classList.remove("loading");
+                            redirectToProcessPage();
+                        },
+                        error: function(data) {
+                            alert("Error in post - check browser console for details!");
+                            console.log("ERROR: ");
+                            console.log(data);
+                            button.classList.remove("loading");
+                        }
+                    });
+                });
+            </script>
+        </div>
+    </body>
+</html>
