@@ -1,27 +1,3 @@
-# The entry flow in this file is invoked as a post build trigger from repos that don't want to use the default kitt
-# deployment and instead want to do deployments using sub kitt files (like facility kitt files).
-# For an example repo and for future developments with easy build and deploy times use
-# https://gecgithub01.walmart.com/Hawkeye/hawkeye-kitt-playground
-
-# It has two modes of deployment - one for PRs and one for regular deployments
-#  Note that the root kitt file is not directly involved in deployment, besides being the trigger for this custom flow
-
-# PR Mode:
-# The PR mode is triggered when a PR is created against the branch specified in the 'pr' stage of the root kitt file.
-# In this mode only the stage named 'pr' for all the sub kitt files is invoked as deployment. All other stages are ignored
-# This means that ideally there should just be a single sub kitt file that is meant to invoke what needs to be done for PR
-# and all other files should not specify the 'pr' stage at all
-
-# Regular deployment mode:
-# The regular deployments are triggered for pushes against the branches defined in the refs of the root kitt file
-# The deployment follows the same chain as it would have if deployed through kitt
-
-# The git branch of this repo that is used by the other repos that want to use this custom flow is set through the
-# 'repo' parameter in the arguments below. The 'repo' here does not refer to a 'git' repo but rather a Concord repo
-# created in Concord at https://concord.prod.walmart.com/#/org/Hawkeye/project/hawkeye/repository
-# It is probably best to use the `hawkeye-kitt-develop` repo defined there, which points to the `develop` branch from
-# this git repo, for experiments and newer features to avoid creating too many Concord repos
-
 configuration:
   dependencies:
     - mvn://org.python:jython-standalone:2.7.1
@@ -52,14 +28,6 @@ configuration:
     retryDelay: 10
     retryTimes: 3
     childJobId: "" # used only in the PR deploy mode
-    # If this token ever expires or is needed to be changed follow these steps
-    #  1. create a new git access token from https://gecgithub01.walmart.com/settings/tokens
-    #  2. grab the token (it will only be visible when created and never after that)
-    #     2.1 this token is in plaintext and should not be used in code directly
-    #  3. go to https://concord.prod.walmart.com/#/org/Hawkeye/project/hawkeye/settings and use the 'Encrypt a value' section
-    #     3.1 enter the token obtained from github into the text box and press `Encrypt`
-    #     3.2 grab the encrypted token and put it as the parameter below for the 'crypto.decryptString' method
-    # hawkeyeGithubToken: ${crypto.decryptString("uSLDrtGdI3TuW8s7f+UsxuQWLb/J8A5+UdUdbutwyVXgxyJYp9EmRXOp9FgI6v1S")}
 
 forms:
   deploymentForm:
