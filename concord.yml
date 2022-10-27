@@ -7,16 +7,16 @@ configuration:
     githubParam:
       apiUrl: "https://gecgithub01.walmart.com/api/v3"
     entryPoint: deploy
-    version: ""
+    version: "1.0"
     branch: "main"
     commitSHA: ""
-    organization: ""
+    organization: "Logistics"
     kittFiles: [ "test-dev-cloud.yml", "test-qa-cloud.yml", "release-devOps-services.yml" ]
     kittFilesGraph: [ ["test-dev-cloud.yml"], ["test-dev-cloud.yml", "test-qa-cloud.yml"], ["test-dev-cloud.yml", "test-qa-cloud.yml", "release-devOps-services.yml"], ["release-devOps-services.yml"] ]
     selectedKittGraph: [ ]
     kittCompletedDeployments: [ ]
     usedFormDeployment: false
-    repo: "https://gecgithub01.walmart.com/Logistics/test-kitt.git"
+    repo: "test-kitt"
     baseProfile: { }
     event: ""
     channelName: "logistics-kitt"
